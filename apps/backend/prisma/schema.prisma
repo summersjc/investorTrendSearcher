@@ -1,0 +1,360 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum InvestorType {
+  VC_FIRM
+  ANGEL
+  PE_FIRM
+  CORPORATE_VC
+  ACCELERATOR
+  FAMILY_OFFICE
+  HEDGE_FUND
+  INDIVIDUAL
+  OTHER
+}
+
+enum CompanyType {
+  PUBLIC
+  PRIVATE
+  ACQUIRED
+  DEFUNCT
+}
+
+enum CompanyStage {
+  PRE_SEED
+  SEED
+  SERIES_A
+  SERIES_B
+  SERIES_C
+  SERIES_D_PLUS
+  GROWTH
+  PUBLIC
+}
+
+enum InvestmentStage {
+  PRE_SEED
+  SEED
+  SERIES_A
+  SERIES_B
+  SERIES_C
+  SERIES_D_PLUS
+  GROWTH
+  IPO
+  SECONDARY
+  DEBT
+  GRANT
+  OTHER
+}
+
+enum InvestmentStatus {
+  ACTIVE
+  EXITED
+  ACQUIRED
+  IPO
+  DEFUNCT
+  UNKNOWN
+}
+
+enum DataSource {
+  MANUAL
+  SEC_EDGAR
+  YAHOO_FINANCE
+  OPENCORPORATES
+  WIKIDATA
+  NEWSAPI
+  WEB_SCRAPING
+  API
+}
+
+// ============================================
+// CORE ENTITIES
+// ============================================
+
+model Investor {
+  id          String       @id @default(cuid())
+  name        String
+  slug        String       @unique
+  type        InvestorType
+  description String?      @db.Text
+  website     String?
+  logoUrl     String?
+
+  // Location
+  city        String?
+  state       String?
+  country     String?
+
+  // Profile
+  foundedYear Int?
+  aum         Float?       // Assets under management
+  teamSize    Int?
+
+  // Social
+  linkedinUrl String?
+  twitterUrl  String?
+
+  // Metadata
+  dataSource  DataSource   @default(MANUAL)
+  rawData     Json?        // Store raw API responses
+  lastFetched DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  // Relations
+  investments        Investment[]
+  fundingRounds      FundingRound[]
+  connections        InvestorConnection[] @relation("InvestorConnections")
+  relatedConnections InvestorConnection[] @relation("RelatedInvestorConnections")
+  portfolioCompanies PortfolioCompany[]
+  scrapingJobs       ScrapingJob[]
+
+  @@index([name])
+  @@index([slug])
+  @@index([type])
+}
+
+model Company {
+  id             String       @id @default(cuid())
+  name           String
+  slug           String       @unique
+  type           CompanyType
+  stage          CompanyStage?
+  description    String?      @db.Text
+  website        String?
+  logoUrl        String?
+
+  // Location
+  headquarters   String?
+  city           String?
+  state          String?
+  country        String?
+
+  // Business
+  industry       String?
+  sector         String?
+  foundedYear    Int?
+  employeeCount  Int?
+
+  // Financial (for public companies)
+  ticker         String?
+  exchange       String?
+  marketCap      Float?
+  revenue        Float?
+
+  // Social
+  linkedinUrl    String?
+  twitterUrl     String?
+
+  // Metadata
+  dataSource     DataSource   @default(MANUAL)
+  rawData        Json?
+  lastFetched    DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  // Relations
+  investments       Investment[]
+  fundingRounds     FundingRound[]
+  connections       CompanyConnection[] @relation("CompanyConnections")
+  relatedConnections CompanyConnection[] @relation("RelatedCompanyConnections")
+  marketData        MarketData[]
+  portfolioEntries  PortfolioCompany[]
+  scrapingJobs      ScrapingJob[]
+
+  @@index([name])
+  @@index([slug])
+  @@index([ticker])
+  @@index([type])
+  @@index([stage])
+}
+
+model Investment {
+  id          String            @id @default(cuid())
+  investorId  String
+  companyId   String
+
+  amount      Float?
+  stage       InvestmentStage
+  status      InvestmentStatus  @default(ACTIVE)
+
+  investedAt  DateTime?
+  exitedAt    DateTime?
+
+  // Additional details
+  leadInvestor Boolean          @default(false)
+  ownership    Float?           // Percentage
+  notes        String?          @db.Text
+
+  // Metadata
+  dataSource  DataSource        @default(MANUAL)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  // Relations
+  investor    Investor          @relation(fields: [investorId], references: [id], onDelete: Cascade)
+  company     Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([investorId, companyId])
+  @@index([investorId])
+  @@index([companyId])
+  @@index([stage])
+  @@index([status])
+}
+
+model FundingRound {
+  id             String            @id @default(cuid())
+  companyId      String
+
+  name           String?           // e.g., "Series A", "Seed Round"
+  stage          InvestmentStage
+  amount         Float?
+  valuation      Float?
+  announcedAt    DateTime?
+  closedAt       DateTime?
+
+  description    String?           @db.Text
+
+  // Metadata
+  dataSource     DataSource        @default(MANUAL)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  // Relations
+  company        Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  investors      Investor[]
+
+  @@index([companyId])
+  @@index([stage])
+  @@index([announcedAt])
+}
+
+model PortfolioCompany {
+  id          String            @id @default(cuid())
+  investorId  String
+  companyId   String
+
+  status      InvestmentStatus  @default(ACTIVE)
+  addedAt     DateTime          @default(now())
+  exitedAt    DateTime?
+
+  notes       String?           @db.Text
+
+  // Relations
+  investor    Investor          @relation(fields: [investorId], references: [id], onDelete: Cascade)
+  company     Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([investorId, companyId])
+  @@index([investorId])
+  @@index([companyId])
+  @@index([status])
+}
+
+// ============================================
+// CONNECTIONS & RELATIONSHIPS
+// ============================================
+
+model InvestorConnection {
+  id              String   @id @default(cuid())
+  investorId      String
+  relatedInvestorId String
+
+  strength        Int      @default(1) // Number of co-investments
+  sharedCompanies String[] // Array of company IDs
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  investor        Investor @relation("InvestorConnections", fields: [investorId], references: [id], onDelete: Cascade)
+  relatedInvestor Investor @relation("RelatedInvestorConnections", fields: [relatedInvestorId], references: [id], onDelete: Cascade)
+
+  @@unique([investorId, relatedInvestorId])
+  @@index([investorId])
+  @@index([relatedInvestorId])
+}
+
+model CompanyConnection {
+  id               String   @id @default(cuid())
+  companyId        String
+  relatedCompanyId String
+
+  type             String   // COMPETITOR, PARTNER, SUPPLIER, CUSTOMER
+  description      String?  @db.Text
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  company          Company  @relation("CompanyConnections", fields: [companyId], references: [id], onDelete: Cascade)
+  relatedCompany   Company  @relation("RelatedCompanyConnections", fields: [relatedCompanyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, relatedCompanyId, type])
+  @@index([companyId])
+  @@index([relatedCompanyId])
+}
+
+// ============================================
+// MARKET DATA
+// ============================================
+
+model MarketData {
+  id          String   @id @default(cuid())
+  companyId   String
+
+  date        DateTime
+  open        Float?
+  high        Float?
+  low         Float?
+  close       Float
+  volume      BigInt?
+
+  // Relations
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, date])
+  @@index([companyId])
+  @@index([date])
+}
+
+// ============================================
+// WEB SCRAPING
+// ============================================
+
+model ScrapingJob {
+  id          String   @id @default(cuid())
+  url         String
+  status      String   // PENDING, RUNNING, COMPLETED, FAILED
+
+  // Target (either investor or company)
+  investorId  String?
+  companyId   String?
+
+  // Results
+  result      Json?
+  error       String?  @db.Text
+
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+
+  // Relations
+  investor    Investor? @relation(fields: [investorId], references: [id], onDelete: Cascade)
+  company     Company?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([investorId])
+  @@index([companyId])
+}

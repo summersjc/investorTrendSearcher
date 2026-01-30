@@ -1,0 +1,101 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: investor-db-prod
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-investor}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-securepassword}
+      POSTGRES_DB: ${POSTGRES_DB:-investor_research}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - investor-network
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U investor']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: investor-redis-prod
+    restart: always
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-securepassword}
+    volumes:
+      - redis_data:/data
+    networks:
+      - investor-network
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # Backend API
+  backend:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    container_name: investor-backend-prod
+    restart: always
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-investor}:${POSTGRES_PASSWORD:-securepassword}@postgres:5432/${POSTGRES_DB:-investor_research}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-securepassword}
+      PORT: 3000
+      NEWS_API_KEY: ${NEWS_API_KEY}
+      OPENCORPORATES_API_KEY: ${OPENCORPORATES_API_KEY}
+      SEC_EDGAR_USER_AGENT: ${SEC_EDGAR_USER_AGENT}
+      DEFAULT_CACHE_TTL_SECONDS: ${DEFAULT_CACHE_TTL_SECONDS:-604800}
+      MARKET_DATA_TTL_SECONDS: ${MARKET_DATA_TTL_SECONDS:-3600}
+      NEWS_TTL_SECONDS: ${NEWS_TTL_SECONDS:-86400}
+    ports:
+      - '3000:3000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - investor-network
+    healthcheck:
+      test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost:3000/api/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Frontend
+  frontend:
+    build:
+      context: .
+      dockerfile: apps/frontend/Dockerfile
+    container_name: investor-frontend-prod
+    restart: always
+    ports:
+      - '80:80'
+    depends_on:
+      - backend
+    networks:
+      - investor-network
+    healthcheck:
+      test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost:80/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  investor-network:
+    driver: bridge
