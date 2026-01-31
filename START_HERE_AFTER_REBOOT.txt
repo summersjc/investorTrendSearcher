@@ -1,0 +1,123 @@
+════════════════════════════════════════════════════════════════
+  INVESTOR RESEARCH APPLICATION - QUICK START AFTER REBOOT
+════════════════════════════════════════════════════════════════
+
+📍 LOCATION: ~/GitHub/investorTrendSearcher
+🔗 GITHUB:   https://github.com/summersjc/investorTrendSearcher
+
+════════════════════════════════════════════════════════════════
+  FASTEST WAY TO START (30 SECONDS)
+════════════════════════════════════════════════════════════════
+
+1. Open Terminal
+2. Run these 2 commands:
+
+   cd ~/GitHub/investorTrendSearcher
+   ./start.sh
+
+3. Wait 30 seconds, then open in browser:
+   http://localhost:5173
+
+DONE! ✅
+
+════════════════════════════════════════════════════════════════
+  MANUAL METHOD (IF SCRIPT DOESN'T WORK)
+════════════════════════════════════════════════════════════════
+
+cd ~/GitHub/investorTrendSearcher
+
+# Step 1: Start Podman
+podman machine start
+sleep 10
+
+# Step 2: Set environment & start containers
+export DOCKER_HOST='unix:///var/folders/_0/ydzmxykj6y33k08bgc4m2mn80000gp/T/podman/podman-machine-default-api.sock'
+podman-compose up -d
+sleep 5
+
+# Step 3: Start backend (new terminal or background)
+pnpm --filter backend start:dev &
+sleep 15
+
+# Step 4: Start frontend (new terminal or background)
+pnpm --filter frontend dev &
+sleep 5
+
+# Step 5: Open browser
+open http://localhost:5173
+
+════════════════════════════════════════════════════════════════
+  VERIFY IT'S WORKING
+════════════════════════════════════════════════════════════════
+
+curl http://localhost:3000/api
+# Should return: {"status":"ok","message":"Investor Research API is running"}
+
+curl -I http://localhost:5173
+# Should return: HTTP/1.1 200 OK
+
+════════════════════════════════════════════════════════════════
+  ACCESS POINTS
+════════════════════════════════════════════════════════════════
+
+Frontend:      http://localhost:5173
+Backend API:   http://localhost:3000/api
+Swagger Docs:  http://localhost:3000/api/docs
+Prisma Studio: cd apps/backend && npx prisma studio
+
+════════════════════════════════════════════════════════════════
+  COMMON PROBLEMS & FIXES
+════════════════════════════════════════════════════════════════
+
+Problem: "Port already in use"
+Fix:     lsof -i :5432 && kill -9 <PID>
+         lsof -i :3000 && kill -9 <PID>
+         lsof -i :5173 && kill -9 <PID>
+
+Problem: "Podman machine won't start"
+Fix:     podman machine stop
+         podman machine start
+
+Problem: "Containers not running"
+Fix:     podman-compose restart
+
+Problem: "Backend DATABASE_URL error"
+Fix:     ls -la apps/backend/.env
+         ln -sf ../../.env apps/backend/.env
+
+Problem: "Local postgres conflict"
+Fix:     brew services stop postgresql@14
+
+════════════════════════════════════════════════════════════════
+  MORE DETAILED HELP
+════════════════════════════════════════════════════════════════
+
+Read these files (in order of usefulness):
+1. RESTART_GUIDE.md    - Complete restart instructions
+2. CURRENT_STATE.md    - What's already set up
+3. QUICK_START.md      - Initial setup guide
+4. CLAUDE.md           - Development reference
+5. TEST_GUIDE.md       - How to test features
+
+════════════════════════════════════════════════════════════════
+  SAMPLE DATA AVAILABLE
+════════════════════════════════════════════════════════════════
+
+Investors: Andreessen Horowitz, Sequoia Capital, Y Combinator
+Companies: Airbnb, Stripe, DoorDash
+Test by searching for these names in the UI!
+
+════════════════════════════════════════════════════════════════
+  PROJECT INFO
+════════════════════════════════════════════════════════════════
+
+Tech Stack:  NestJS + React + PostgreSQL + Redis
+Status:      ✅ Production Ready (All 7 phases complete)
+Lines:       37,186 lines of code
+Files:       130+ files
+API Cost:    $0 (all free integrations)
+
+Last Session: January 30, 2026
+Everything is committed to GitHub ✅
+
+════════════════════════════════════════════════════════════════

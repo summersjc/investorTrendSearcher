@@ -2,6 +2,17 @@
 
 A web-based research platform that aggregates data about investors and companies using free APIs and manual data entry. This application provides comprehensive profiles, investment relationships, and market data to support pre-meeting research.
 
+## 🚀 Quick Start After Reboot
+
+```bash
+cd ~/GitHub/investorTrendSearcher
+./start.sh
+```
+
+Then open http://localhost:5173 in your browser!
+
+See **[START_HERE_AFTER_REBOOT.txt](START_HERE_AFTER_REBOOT.txt)** for detailed restart instructions.
+
 ## Features
 
 - **Hybrid Data Collection**: Combines free APIs, web scraping, and manual entry
